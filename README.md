@@ -48,3 +48,8 @@ python evaluate_model.py
 Runs predictions on the `test/` folder. Output saved to `runs/evaluate/test_predictions/`.
 
 > Before running evaluate, update the model path in `evaluate_model.py` to your actual `best.pt` (found in `runs/detect/.../weights/best.pt`).
+
+
+
+
+pip install -r requirements.txt 
