@@ -1,0 +1,7 @@
+path: c:/Users/yahia/OneDrive/Desktop/school/DeepLearning\dataset
+train: images/train
+val: images/val
+
+nc: 1
+names:
+  0: cassette

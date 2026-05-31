@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# YOLO model weights
+*.pt
+
+# Training outputs
+runs/
+
+# Datasets (too large for GitHub)
+dataset/
+train/
+test/
