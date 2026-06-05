@@ -4,7 +4,7 @@ if __name__ == '__main__':
     model = YOLO("yolov8s.pt")  # small model, good for RTX 2080
 
     results = model.train(
-        data="c:/Users/yahia/OneDrive/Desktop/school/DeepLearning/dataset.yaml",
+        data="dataset.yaml",
         epochs=50,
         imgsz=640,
         batch=16,

@@ -1,6 +1,6 @@
 import os, shutil, random
 
-BASE = "c:/Users/yahia/OneDrive/Desktop/school/DeepLearning"
+BASE = os.path.dirname(os.path.abspath(__file__))
 TRAIN_SRC = os.path.join(BASE, "train")
 
 # Output structure

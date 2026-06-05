@@ -166,3 +166,155 @@ This is how you visually verify the model actually works correctly on real-world
 ## The Big Picture (in one paragraph)
 
 You had images of COVID lateral flow test cassettes. You labeled those images with bounding boxes using an annotation tool, which saved the labels in COCO JSON format. Since YOLO uses a different label format, you first converted those labels. Then you split the labeled data into a training set (85%) and a validation set (15%) and organized everything into the folder structure YOLO expects. You then trained a YOLOv8 small model on this data, using transfer learning (starting from a model pre-trained on general images) to fine-tune it specifically for detecting cassettes. The model trained on GPU for up to 50 epochs — after each epoch it was checked against the validation set to track real progress and avoid memorization, and the best checkpoint was saved. Finally, you ran the trained model on a completely separate test set it had never seen, and it drew bounding boxes around the cassettes — proving the model can generalize to new, unseen data.
+
+---
+
+# PHASE 2 — Classification Pipeline
+
+## Overview: Two Models Working Together
+
+Phase 1 built a **detection model** (YOLOv8) that finds cassettes in an image and draws a bounding box around them. However, finding the cassette is only half the problem.
+
+In Phase 2, you add a **classification model** that determines the *result* of each cassette:
+- Is it **negative** (one line visible)?
+- Is it **positive** (two lines visible)?
+- Is it **invalid** (unclear or ambiguous)?
+
+The two models work together in a **pipeline**:
+1. **Model 1 (Detection, from Phase 1)** — Takes the original image, finds the cassette, and crops it out.
+2. **Model 2 (Classification, new in Phase 2)** — Takes the cropped cassette image and classifies it into one of the result categories.
+
+This two-stage approach is much more accurate than trying to classify the entire image directly, because the cassette is already isolated and centered.
+
+---
+
+## Phase 2, Step 1 — Preparing Labeled Cassette Crops
+
+**Files involved:** Detection model output, manual labeling
+
+To train the classification model, you need cropped images of cassettes (not full images). The process:
+
+1. Use the **Phase 1 detection model** to automatically find and crop cassettes from a large image dataset.
+2. Manually label each cropped cassette with its result class:
+   - **Negative** — one line (test negative)
+   - **Positive** — two lines (test positive)
+   - **Invalid** — cannot read or ambiguous
+3. Organize these labeled crops into a folder structure for training:
+   ```
+   project2/
+   ├── train/
+   │   ├── negative/
+   │   ├── positive/
+   │   └── invalid/
+   └── test/
+       ├── negative/
+       ├── positive/
+       └── invalid/
+   ```
+
+**Files that help with this:**
+- `crop_images.py` — Crops cassettes using the detection model
+- `crop_new_positives.py` — Crops additional positive samples for better class balance
+- `label_images.py` — Helps with manual labeling of the cropped cassettes
+- `augment_images.py` — Creates variations of the cropped images (rotations, brightness changes, etc.) to increase training data and improve robustness
+
+---
+
+## Phase 2, Step 2 — Training the Classification Model
+
+**File:** `train_classifier.py`  
+**Output:** `project2/best_model.pth`
+
+This script trains a **CNN (Convolutional Neural Network)** classifier on the cropped cassette images. Unlike YOLO (which is trained with a special YOLO script), this classifier is trained with PyTorch code directly.
+
+**What it does:**
+1. Loads a pre-trained image classification model (likely ResNet or EfficientNet) — another example of **transfer learning**.
+2. Fine-tunes it on the cassette crop dataset with labels (negative, positive, valid, invalid).
+3. Trains for multiple epochs, splitting the data into:
+   - **Training set** — the classifier learns from these
+   - **Validation set** — tracks performance and prevents overfitting
+4. Saves the best-performing model to `project2/best_model.pth`.
+
+**Key difference from Phase 1:**
+- Phase 1 used YOLO, which predicts **bounding box coordinates** (localization).
+- Phase 2 uses a standard CNN classifier, which predicts **class labels** (classification into 4 categories).
+
+---
+
+## Phase 2, Step 3 — The Two-Model Inference Pipeline
+
+**File:** `predict.py` (or similar inference script)
+
+Once both models are trained, you can run predictions on new, unseen images using the **combined pipeline**:
+
+**What it does:**
+1. **Detection step:** Load the Phase 1 model (`runs/detect/runs/covid_lft-3/weights/best.pt`) and run it on the input image.
+   - The model finds the cassette and outputs a bounding box.
+   - Crop the region inside the bounding box from the original image.
+   
+2. **Classification step:** Load the Phase 2 model (`project2/best_model.pth`) and run it on the cropped cassette.
+   - The model analyzes the cropped cassette and outputs a classification: **negative**, **positive**, or **invalid**.
+   
+3. **Output:** For each input image, you get:
+   - The location of the cassette (bounding box from Model 1)
+   - The test result (classification from Model 2)
+
+**Why this works better:**
+- The detection model is specialized in *finding* objects in complex scenes.
+- The classification model is specialized in *analyzing* the fine details of a centered, isolated cassette.
+- Together, they provide both location *and* classification in a single pipeline.
+
+---
+
+## Phase 2 Files Summary
+
+| File / Folder | Purpose |
+|---|---|
+| `crop_images.py` | Uses Phase 1 detection model to automatically crop cassettes from images |
+| `crop_new_positives.py` | Crops additional positive samples to balance the dataset |
+| `label_images.py` | Helper tool for manually labeling cropped cassettes |
+| `augment_images.py` | Creates augmented versions of crops (rotations, brightness, etc.) for training |
+| `project2/` | Folder containing the classification dataset and trained model |
+| `project2/train/` | Labeled training crops organized by class (negative/, positive/, invalid/) |
+| `project2/test/` | Test crops to evaluate the classifier |
+| `project2/best_model.pth` | The saved classification model (Phase 2) |
+| `train_classifier.py` | Trains the CNN classifier on cropped cassettes |
+| `predict.py` | Runs both models together: detection (Phase 1) + classification (Phase 2) |
+
+---
+
+## The Complete Two-Phase Pipeline
+
+**Phase 1 (Detection):**
+```
+Raw Image
+    ↓
+[YOLOv8 Detection Model]
+    ↓
+Bounding Box (location of cassette)
+```
+
+**Phase 2 (Classification):**
+```
+Raw Image → [Phase 1 Detection] → Cropped Cassette Image
+    ↓
+[CNN Classification Model]
+    ↓
+Result: Negative / Positive / Invalid
+```
+
+**Full Pipeline (Combined):**
+```
+Raw Image
+    ↓
+[Phase 1: YOLOv8 Detection] ← Finds cassette, crops it
+    ↓
+[Phase 2: CNN Classifier] ← Analyzes crop, classifies result
+    ↓
+Output: Cassette Location (bbox) + Test Result (class label)
+```
+
+This two-stage approach achieves high accuracy because:
+1. The detection model is optimized for localization (finding the object).
+2. The classification model is optimized for fine-grained analysis (reading the test result).
+3. Each model does what it's best at, rather than forcing one model to do both tasks.
