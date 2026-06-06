@@ -165,13 +165,13 @@ class App(tk.Tk):
 
     def _try_enable_dnd(self):
         try:
-            from tkinterdnd2 import DND_FILES
+            from TkinterDnD2 import DND_FILES
             self.drop_frame.drop_target_register(DND_FILES)
             self.drop_frame.dnd_bind("<<Drop>>", self._on_drop)
             self.drop_label.drop_target_register(DND_FILES)
             self.drop_label.dnd_bind("<<Drop>>", self._on_drop)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Drag and drop failed to enable: {e}")
 
     def _on_drop(self, event):
         path = event.data.strip().strip("{}")
@@ -236,11 +236,11 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     try:
-        from tkinterdnd2 import TkinterDnD
+        from TkinterDnD2 import TkinterDnD
 
         class App2(App):
             def __init__(self):
-                tk.Tk.__init__(self)
+                TkinterDnD.Tk.__init__(self)
                 self.title("COVID-19 Rapid Test Analyzer")
                 self.resizable(True, True)
                 self.configure(bg="#1e1e2e")
